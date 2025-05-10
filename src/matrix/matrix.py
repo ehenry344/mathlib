@@ -1,6 +1,24 @@
 class Vector:
     def __init__(self, arr):
+        if not isinstance(arr, (list, tuple)):
+            raise ValueError("arr must be an iterable")
+        
+        for elem in arr:
+            if not isinstance(elem, (list, tuple)):
+                raise ValueError("arr must be one dimensional")
+        
         self.__arr = arr
+    
+    def dot(self, other):
+        if len(other.__arr) != len(self.__arr):
+            raise ValueError("both vectors must be of same length")
+        
+        dot_product = 0
+
+        for idx in range(self.__arr):
+            dot_product += (self.__arr[idx] * other.__arr[idx])
+
+        return dot_product
     
     @property
     def magnitude(self):
@@ -28,45 +46,82 @@ class Matrix: # structure holding numbers in rows and columns
             
         self.__shape = (row_size, col_size)
         self.__arr = arr
+
+    def __get_submatrix(self, i, j): # returns matrix with row i and column j removed
+        row_array = self.__arr[0:i] + self.__arr[i+1:]
+        sub_matrix_array = []
+
+        for row in row_array:
+            sub_matrix_array.append(row[0:j] + row[j+1:])
+
+        return Matrix(sub_matrix_array)
+    
+    def cofactor(self, i, j):
+        coeff = (i+j) & 1 and -1 or 1
+        return coeff * self.__get_submatrix(i, j).determinant
     
     @property
     def determinant(self):
-        if self.__shape[0] != self.__shape[1]:
+        if not self.issquare:
             raise ValueError("matrix must be square")
 
         if self.__shape[0] == 1:
-            return self._arr[0][0]
+            return self.__arr[0][0]
         if self.__shape[0] == 2:
             return self.__arr[0][0]*self.__arr[1][1]-self.__arr[0][1]*self.__arr[1][0]
-
+        
         _sum = 0
-        arr = self.__arr
-        for col_index in range(self.__shape[0]):
-            c = arr[col_index][0]
-            c_s = (col_index & 1) and -1 or 1
-
-            sub_matrix_array = []
-            for row_index in range(0, self.__shape[0]):
-                if row_index != col_index:
-                    lhs = arr[row_index][0:col_index]
-                    rhs = arr[row_index][col_index+1:self.__shape[0]]
-
-                    sub_matrix_array.append(lhs + rhs)
-
-            _sum += Matrix(sub_matrix_array).determinant * (c * c_s)
+        for i in range(self.__shape[0]):
+            _sum += self.__arr[i][0] * self.cofactor(0, i)
         
         return _sum
     
     @property
-    def det(self):
-        return self.determinant
+    def inverse(self):
+        if not self.issquare:
+            raise ValueError("matrix must be nxn")
+        
+        adj_mat = []
+        for row_index in range(self.__shape[0]):
+            adj_vector = []
+            for col_index in range(self.__shape[0]):
+                adj_vector.append(self.cofactor(col_index, row_index))
+            adj_mat.append(adj_vector)
+        
+        return Matrix(adj_mat).scale(1/self.determinant)
+    
+    def multiply(self, other): # naive matrix multiplication
+        if not isinstance(other, Matrix):
+            raise ValueError("can only multiply a matrix with another matrix")    
+        if self.shape[1] != other.shape[0]:
+            raise ValueError("matrix shapes incompatible for matrix multiplication")
+        
+        result = []
+        for i in range(self.shape[0]):
+            result_row = []
+            for j in range(other.shape[1]):
+                entry_sum = 0
+                for k in range(self.shape[1]):
+                    entry_sum += self.__arr[i][k] * other.__arr[k][j]
+                result_row.append(entry_sum)
+            result.append(result_row)
+
+        return Matrix(result)
+
+    
+    @property
+    def det(self): return self.determinant
+
+    @property
+    def issquare(self): return self.__shape[0] == self.__shape[1]
+
+    @property
+    def shape(self): return (self.__shape[0], self.__shape[1])
     
     def scale(self, scalar):
         new_matrix_arr = []
-
         for row in self.__arr:
             new_matrix_arr.append([entry * scalar for entry in row])
-        
         return Matrix(new_matrix_arr)
 
     def __str__(self):
@@ -81,10 +136,11 @@ class Matrix: # structure holding numbers in rows and columns
         m_str = m_str[:-1]
         
         return m_str
+    
 
 
 
 
 if __name__ == "__main__":
-    m = Matrix([[5, 9], [5, 6]])
-    
+    m = Matrix([[1, 6], [4, 4]])
+    print(m.multiply(Matrix([[1, 0], [0, 1]])))
